@@ -1,0 +1,11 @@
+name: Smoke (mac)
+on: workflow_dispatch
+jobs:
+  ping:
+    strategy:
+      matrix:
+        runner: [macos-13, macos-14, macos-15]
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: true
+    steps:
+      - run: sw_vers && xcodebuild -version
