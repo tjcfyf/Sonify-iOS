@@ -307,6 +307,8 @@ final class PlayerEngine: ObservableObject {
         queue.remove(at: position)
         if queue.isEmpty {
             stop()
+            // 队列空了必须把持久化快照也清掉，否则下次冷启动会把已删除的歌恢复回来。
+            clearPersistedState()
             return
         }
         if position < index {
@@ -318,6 +320,16 @@ final class PlayerEngine: ObservableObject {
     }
 
     /// 曲库删除某首歌时同步清掉队列；删的是当前曲目就顺延。
+    /// 清空队列（清除全部歌曲时用）。
+    func clearQueue() {
+        stop()
+        queue.removeAll()
+        index = 0
+        currentTime = 0
+        clearPersistedState()
+        refreshLockScreenInfo()
+    }
+
     func handleTrackDeleted(_ trackID: String, fileURL: URL? = nil) {
         guard let position = queue.firstIndex(where: {
             $0.id == trackID || (fileURL != nil && $0.fileURL == fileURL)
@@ -596,8 +608,18 @@ final class PlayerEngine: ObservableObject {
               !state.tracks.isEmpty
         else { return }
 
-        queue = state.tracks
-        index = min(max(0, state.index), state.tracks.count - 1)
+        // 文件被删掉的曲目不再恢复，避免"删了歌重启又回来"或播放 0 字节文件。
+        let alive = state.tracks.filter { track in
+            guard let url = track.fileURL else { return true }
+            return FileManager.default.fileExists(atPath: url.path)
+        }
+        guard !alive.isEmpty else {
+            clearPersistedState()
+            return
+        }
+        queue = alive
+        let originalID = state.tracks.indices.contains(state.index) ? state.tracks[state.index].id : alive[0].id
+        index = alive.firstIndex(where: { $0.id == originalID }) ?? 0
         desiredRate = state.rate
         playbackRate = state.rate
         pendingSeek = state.time

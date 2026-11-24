@@ -163,6 +163,18 @@ final class LibraryStore: ObservableObject {
         PlayerEngine.shared.handleTrackDeleted(track.id, fileURL: track.fileURL)
     }
 
+    /// 兜底入口：设置页「清除全部本地歌曲」，一次性把曲库清空（不碰收藏以外的元数据）。
+    func deleteAllLocalTracks() {
+        let snapshot = tracks
+        tracks.removeAll()
+        for track in snapshot where track.fileURL != nil {
+            TrackFileRemoval.remove(audio: track.fileURL!)
+        }
+        favoriteIDs = []
+        PlayerEngine.shared.stop()
+        PlayerEngine.shared.clearQueue()
+    }
+
     func isFavorite(_ track: Track) -> Bool {
         favoriteIDs.contains(track.id)
     }

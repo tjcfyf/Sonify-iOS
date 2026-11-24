@@ -10,8 +10,6 @@ struct LibraryView: View {
 
     @FocusState private var searchFocused: Bool
     @State private var isImporting = false
-    @State private var isManaging = false
-    @State private var pendingDeletion: Track?
     @State private var deletionNotice: String?
     @State private var sortMode: SortMode = .title
 
@@ -38,74 +36,70 @@ struct LibraryView: View {
                         .padding(.bottom, 8)
                 }
 
-                ScrollViewReader { proxy in
-                ZStack(alignment: .trailing) {
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        ForEach(groups, id: \.key) { group in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(group.key)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(Theme.tertiaryText)
-                                    .padding(.horizontal, 4)
-                                VStack(spacing: 0) {
-                                    ForEach(group.tracks) { track in
-                                        TrackRow(
-                                            track: track,
-                                            isCurrent: engine.currentTrack?.id == track.id,
-                                            showsFavorite: true,
-                                            isFavorite: library.isFavorite(track),
-                                            onTap: {
-                                                let queue = library.filteredTracks
-                                                engine.play(queue: queue, startAt: queue.firstIndex(of: track) ?? 0)
-                                            },
-                                            onToggleFavorite: { library.toggleFavorite(track) },
-                                            onDelete: isManaging ? { pendingDeletion = track } : nil
-                                        )
-                                        .contextMenu {
-                                            Button {
-                                                library.toggleFavorite(track)
-                                            } label: {
-                                                Label(library.isFavorite(track) ? "取消收藏" : "收藏", systemImage: "heart")
-                                            }
-                                            Button(role: .destructive) {
-                                                pendingDeletion = track
-                                            } label: {
-                                                Label("删除歌曲", systemImage: "trash")
-                                            }
-                                        }
+                List {
+                    ForEach(groups, id: \.key) { group in
+                        Section {
+                            ForEach(group.tracks) { track in
+                                TrackRow(
+                                    track: track,
+                                    isCurrent: engine.currentTrack?.id == track.id,
+                                    showsFavorite: true,
+                                    isFavorite: library.isFavorite(track),
+                                    onTap: {
+                                        let queue = library.filteredTracks
+                                        engine.play(queue: queue, startAt: queue.firstIndex(of: track) ?? 0)
+                                    },
+                                    onToggleFavorite: { library.toggleFavorite(track) }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 2, leading: Theme.pagePadding, bottom: 2, trailing: Theme.pagePadding))
+                                .contextMenu {
+                                    Button {
+                                        library.toggleFavorite(track)
+                                    } label: {
+                                        Label(library.isFavorite(track) ? "取消收藏" : "收藏", systemImage: "heart")
+                                    }
+                                    Button(role: .destructive) {
+                                        delete(tracks: [track])
+                                    } label: {
+                                        Label("删除歌曲", systemImage: "trash")
                                     }
                                 }
                             }
-                            .id(group.key)
+                            .onDelete { offsets in
+                                let targets = offsets.compactMap { group.tracks.indices.contains($0) ? group.tracks[$0] : nil }
+                                delete(tracks: targets)
+                            }
+                        } header: {
+                            Text(group.key)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Theme.tertiaryText)
                         }
-                        if library.filteredTracks.isEmpty {
-                            Text(library.tracks.isEmpty ? "还没有歌曲，点右上角导入。" : "没有匹配的结果。")
-                                .font(.system(size: 14))
-                                .foregroundColor(Theme.secondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 60)
-                        }
+                        .textCase(nil)
                     }
-                    .pagePadding()
-                    .padding(.bottom, 130)
+
+                    if library.filteredTracks.isEmpty {
+                        Text(library.tracks.isEmpty ? "还没有歌曲，点右上角导入，或去首页生成演示曲。" : "没有匹配的结果。")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 60)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
                 }
-                indexBar(proxy: proxy)
-                }
-                }
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 1)
             }
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("资料库")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(isManaging ? "完成" : "管理") {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isManaging.toggle()
-                        }
-                    }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(settings.accent)
+                    EditButton()
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(settings.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -143,35 +137,6 @@ struct LibraryView: View {
             }
             router.focusLibrarySearch = false
         }
-        .confirmationDialog(
-            pendingDeletion.map { "删除《\($0.title)》？" } ?? "删除这首歌？",
-            isPresented: Binding(
-                get: { pendingDeletion != nil },
-                set: { if !$0 { pendingDeletion = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("删除文件", role: .destructive) {
-                if let track = pendingDeletion {
-                    let title = track.title
-                    library.delete(track)
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        deletionNotice = "已删除《\(title)》"
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                        withAnimation(.easeIn(duration: 0.2)) {
-                            deletionNotice = nil
-                        }
-                    }
-                }
-                pendingDeletion = nil
-            }
-            Button("取消", role: .cancel) {
-                pendingDeletion = nil
-            }
-        } message: {
-            Text("会同时删除同名 .lrc 歌词，且不可恢复。")
-        }
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff],
@@ -179,6 +144,23 @@ struct LibraryView: View {
         ) { result in
             if case let .success(urls) = result {
                 library.importFiles(urls)
+            }
+        }
+    }
+
+    /// 统一的删除入口：List 滑动、编辑态减号、长按菜单都走这里。
+    private func delete(tracks targets: [Track]) {
+        guard !targets.isEmpty else { return }
+        for track in targets {
+            library.delete(track)
+        }
+        let names = targets.count == 1 ? "《\(targets[0].title)》" : "\(targets.count) 首歌"
+        withAnimation(.easeOut(duration: 0.2)) {
+            deletionNotice = "已删除\(names)"
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            withAnimation(.easeIn(duration: 0.2)) {
+                deletionNotice = nil
             }
         }
     }
@@ -210,29 +192,6 @@ struct LibraryView: View {
 
     /// 字母索引条（Android 的 MochiIndexBar 等价物）。iOS 15 没有系统索引栏，
     /// 这里在右侧叠一列字母，点一下滚到对应分组。
-    private func indexBar(proxy: ScrollViewProxy) -> some View {
-        VStack(spacing: 1) {
-            ForEach(groups.map(\.key), id: \.self) { key in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        proxy.scrollTo(key, anchor: .top)
-                    }
-                } label: {
-                    Text(key)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(Theme.secondaryText)
-                        .frame(width: 18, height: 15)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 3)
-        .background(
-            GlassSurface(style: GlassStyle(intensity: 0.75, cornerRadius: 10)) { Color.clear }
-        )
-        .padding(.trailing, 2)
-    }
 
     private var groups: [(key: String, tracks: [Track])] {
         let source: [Track]

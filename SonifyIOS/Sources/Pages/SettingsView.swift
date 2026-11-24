@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject private var engine: PlayerEngine
 
     @State private var showRescanDone = false
+    @State private var showClearConfirm = false
 
     var body: some View {
         NavigationView {
@@ -190,7 +191,31 @@ struct SettingsView: View {
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    showClearConfirm = true
+                } label: {
+                    HStack {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("清除全部本地歌曲")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(Theme.accents[0])
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+                .disabled(library.tracks.isEmpty)
+                .opacity(library.tracks.isEmpty ? 0.4 : 1)
             }
+        }
+        .alert("删除全部本地歌曲？", isPresented: $showClearConfirm) {
+            Button("全部删除", role: .destructive) {
+                library.deleteAllLocalTracks()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("共 \(library.tracks.count) 首，文件与同名歌词都会删掉，不可恢复。")
         }
     }
 
