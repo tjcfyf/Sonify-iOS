@@ -19,7 +19,13 @@ enum TrackFileRemoval {
             try? fileManager.removeItem(at: lyricURL)
         }
         // 若所在子目录已空（演示曲的「示例曲」目录），一起收掉，避免留空壳目录。
+        // 两个硬条件：真的删掉了文件，且不是 Documents 根目录本身（否则空库时会把沙盒根目录删掉）。
+        guard removedAny else { return removedAny }
         let folder = url.deletingLastPathComponent()
+        let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+        if let docs, folder.standardizedFileURL == docs.standardizedFileURL {
+            return removedAny
+        }
         if let contents = try? fileManager.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
             try? fileManager.removeItem(at: folder)
         }
