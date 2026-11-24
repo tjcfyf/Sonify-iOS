@@ -1,0 +1,97 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode (15.x if available, else default)
+        run: |
+          set -e
+          ls /Applications | grep -i xcode || true
+          if [ -d "/Applications/Xcode_15.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app
+          elif [ -d "/Applications/Xcode_15.3.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.3.app
+          fi
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          cd SonifyIOS
+          xcodegen generate
+          ls -la
+
+      - name: Build (unsigned, Release)
+        run: |
+          set -o pipefail
+          cd SonifyIOS
+          xcodebuild \
+            -project Sonify.xcodeproj \
+            -scheme Sonify \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build | tee ../build.log | tail -n 120
+
+      - name: Package unsigned IPA
+        run: |
+          set -e
+          cd SonifyIOS
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "APP: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then echo "找不到 .app，构建失败"; exit 1; fi
+          rm -rf ../Payload && mkdir -p ../Payload
+          cp -R "$APP_PATH" ../Payload/
+          cd ..
+          zip -qry Sonify-unsigned.ipa Payload
+          ls -lh Sonify-unsigned.ipa
+          unzip -l Sonify-unsigned.ipa | head -n 20
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Upload IPA artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonify-unsigned-ipa
+          path: Sonify-unsigned.ipa
+          retention-days: 14
+
+      - name: Attach IPA to Release
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Sonify iOS unsigned build #${{ github.run_number }}
+          body: |
+            未签名 IPA（用于 TrollStore / 自签工具）。
+            - 构建时间：${{ github.event.repository.updated_at }}
+            - 安装方式见仓库 README 的「没有电脑怎么装」一节。
+          files: Sonify-unsigned.ipa
+          draft: false
+          prerelease: true

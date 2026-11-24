@@ -1,0 +1,60 @@
+name: Sonify
+options:
+  bundleIdPrefix: com.sonify
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.7"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_EMIT_LOC_STRINGS: NO
+
+targets:
+  Sonify:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_FILE: Resources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.sonify.music
+        GENERATE_INFOPLIST_FILE: NO
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1
+    dependencies:
+      - sdk: AVFoundation.framework
+      - sdk: MediaPlayer.framework
+      - sdk: UIKit.framework
+      - sdk: CoreImage.framework
+
+  SonifyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Sonify.app/Sonify"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: Sonify
+
+schemes:
+  Sonify:
+    build:
+      targets:
+        Sonify: all
+        SonifyTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SonifyTests

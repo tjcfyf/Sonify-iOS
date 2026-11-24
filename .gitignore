@@ -1,0 +1,8 @@
+SonifyIOS/build/
+SonifyIOS/Sonify.xcodeproj/
+SonifyIOS/*.xcworkspace/
+SonifyIOS-M0.zip
+build.log
+Payload/
+*.ipa
+.tmp-tool-results/
