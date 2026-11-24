@@ -12,6 +12,12 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var deletionNotice: String?
     @State private var sortMode: SortMode = .title
+    @State private var scope: Scope = .all
+
+    private enum Scope: String, CaseIterable, Hashable {
+        case all = "全部"
+        case favorites = "收藏"
+    }
 
     private enum SortMode: String, CaseIterable, Hashable {
         case title = "按标题"
@@ -25,6 +31,15 @@ struct LibraryView: View {
                 searchBar
                     .padding(.horizontal, Theme.pagePadding)
                     .padding(.bottom, 12)
+
+                Picker("范围", selection: $scope) {
+                    ForEach(Scope.allCases, id: \.self) { item in
+                        Text(item.rawValue).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, Theme.pagePadding)
+                .padding(.bottom, 10)
 
                 if let notice = deletionNotice {
                     Text(notice)
@@ -79,8 +94,8 @@ struct LibraryView: View {
                         .textCase(nil)
                     }
 
-                    if library.filteredTracks.isEmpty {
-                        Text(library.tracks.isEmpty ? "还没有歌曲，点右上角导入，或去首页生成演示曲。" : "没有匹配的结果。")
+                    if library.filteredTracks.isEmpty || (scope == .favorites && library.favoriteTracks.isEmpty) {
+                        Text(library.tracks.isEmpty ? "还没有歌曲，点右上角导入，或去首页生成演示曲。" : (scope == .favorites ? "还没有收藏的歌曲，长按歌曲即可收藏。" : "没有匹配的结果。"))
                             .font(.system(size: 14))
                             .foregroundColor(Theme.secondaryText)
                             .frame(maxWidth: .infinity)
@@ -189,16 +204,20 @@ struct LibraryView: View {
     /// 这里在右侧叠一列字母，点一下滚到对应分组。
 
     private var groups: [(key: String, tracks: [Track])] {
-        let source: [Track]
+        var source: [Track] = library.filteredTracks
+        if scope == .favorites {
+            source = source.filter { library.isFavorite($0) }
+        }
+        switch sortMode {
         switch sortMode {
         case .title:
-            source = library.filteredTracks
+            break
         case .artist:
-            source = library.filteredTracks.sorted {
+            source = source.sorted {
                 $0.artist.localizedStandardCompare($1.artist) == .orderedAscending
             }
         case .duration:
-            source = library.filteredTracks.sorted { $0.duration < $1.duration }
+            source = source.sorted { $0.duration < $1.duration }
         }
 
         let grouped = Dictionary(grouping: source) { track -> String in

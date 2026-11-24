@@ -33,7 +33,13 @@ struct RootView: View {
         }
         .environment(\.accent, settings.accent)
         .environmentObject(router)
-        .sheet(isPresented: $showsPlayer) {
+        .sheet(isPresented: Binding(
+            get: { showsPlayer || router.presentPlayer },
+            set: { newValue in
+                showsPlayer = newValue
+                if !newValue { router.presentPlayer = false }
+            }
+        )) {
             NowPlayingView()
                 .environmentObject(engine)
                 .environmentObject(settings)

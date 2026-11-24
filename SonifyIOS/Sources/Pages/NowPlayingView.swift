@@ -13,6 +13,7 @@ struct NowPlayingView: View {
     @State private var scrubTime: Double = 0
     @State private var dominantColor: Color?
     @State private var dragDownOffset: CGFloat = 0
+    @State private var confirmsClearQueue = false
 
     private var track: Track? { engine.currentTrack }
 
@@ -452,11 +453,28 @@ struct NowPlayingView: View {
                         .foregroundColor(settings.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") { showsQueue = false }
+                    Menu {
+                        Button("清空队列", role: .destructive) {
+                            confirmsClearQueue = true
+                        }
+                        Button("关闭") { showsQueue = false }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(settings.accent)
+                    }
                 }
             }
         }
         .navigationViewStyle(.stack)
+        .alert("清空播放队列？", isPresented: $confirmsClearQueue) {
+            Button("清空", role: .destructive) {
+                engine.clearQueue()
+                showsQueue = false
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("只清空队列，不删除歌曲文件。")
+        }
         .onAppear {
             // iOS 15 的 List 默认白底，只能从 UITableView 外观层压掉。
             UITableView.appearance().backgroundColor = .clear

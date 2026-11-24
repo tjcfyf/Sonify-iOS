@@ -26,4 +26,11 @@ final class TabRouter: ObservableObject {
     func openSettings() {
         selected = .settings
     }
+
+    /// 从首页"继续播放"卡片等处直接唤起播放页（MiniPlayerBar 之外的第二入口）。
+    @Published var presentPlayer = false
+
+    func openPlayer() {
+        presentPlayer = true
+    }
 }

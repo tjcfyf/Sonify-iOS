@@ -16,6 +16,9 @@ struct HomeView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
                     header
+                    if let resume = resumeTrack {
+                        resumeCard(resume)
+                    }
                     quickRow
                     if library.tracks.isEmpty {
                         emptyState
@@ -42,6 +45,60 @@ struct HomeView: View {
     }
 
     // MARK: - 组件
+
+    /// 冷启动恢复出来的"上次那首"：有曲目、但还没在播，就给一个继续播放入口。
+    private var resumeTrack: Track? {
+        guard !engine.isPlaying, let current = engine.currentTrack else { return nil }
+        return current
+    }
+
+    private func resumeCard(_ track: Track) -> some View {
+        HStack(spacing: 14) {
+            ArtworkView(track: track, cornerRadius: 14)
+                .frame(width: 54, height: 54)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("继续播放")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Theme.tertiaryText)
+                Text(track.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.primaryText)
+                    .lineLimit(1)
+                Text(formatProgress())
+                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .foregroundColor(Theme.secondaryText)
+            }
+            Spacer(minLength: 0)
+            Button {
+                engine.togglePlayPause()
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(Theme.primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(settings.accent.opacity(0.28)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Theme.surface.opacity(0.72))
+        )
+        .onTapGesture {
+            router.openPlayer()
+        }
+    }
+
+    private func formatProgress() -> String {
+        let played = Int(engine.currentTime)
+        let total = Int(engine.duration > 0 ? engine.duration : (track_durationFallback()))
+        return String(format: "上次听到 %d:%02d / %d:%02d", played / 60, played % 60, total / 60, total % 60)
+    }
+
+    private func track_durationFallback() -> Double {
+        engine.currentTrack?.duration ?? 0
+    }
 
     private var header: some View {
         HStack(alignment: .center) {
