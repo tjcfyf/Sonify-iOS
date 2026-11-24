@@ -13,7 +13,25 @@ enum LibraryScanner {
 
     /// 扫描目录（默认沙盒 Documents）。返回的值模型不含任何 AVFoundation 对象，可直接进 SwiftUI 状态。
     static func scan(directory: URL) async -> [Track] {
+        // 先把文件列表同步收集完，再逐个 await 读元数据。
+        // 直接在 async 函数里遍历 FileManager.DirectoryEnumerator 会触发
+        // "makeIterator is unavailable from asynchronous contexts"（Swift 6 里是硬错误）。
+        let urls = collectAudioURLs(in: directory)
+
         var tracks: [Track] = []
+        for url in urls {
+            if let track = await makeTrack(url: url) {
+                tracks.append(track)
+            }
+        }
+
+        return tracks.sorted { lhs, rhs in
+            lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    static func collectAudioURLs(in directory: URL) -> [URL] {
+        var urls: [URL] = []
         let fileManager = FileManager.default
         guard let enumerator = fileManager.enumerator(
             at: directory,
@@ -26,14 +44,9 @@ enum LibraryScanner {
             guard let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
                   values.isRegularFile == true
             else { continue }
-            if let track = await makeTrack(url: fileURL) {
-                tracks.append(track)
-            }
+            urls.append(fileURL)
         }
-
-        return tracks.sorted { lhs, rhs in
-            lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-        }
+        return urls
     }
 
     static func makeTrack(url: URL) async -> Track? {
@@ -50,19 +63,19 @@ enum LibraryScanner {
                 guard let key = item.commonKey else { continue }
                 switch key {
                 case .commonKeyTitle:
-                    if let value = try? await item.load(.stringValue), let text = value, !text.isEmpty {
+                    if let text = try? await item.load(.stringValue), !text.isEmpty {
                         title = text
                     }
                 case .commonKeyArtist:
-                    if let value = try? await item.load(.stringValue), let text = value, !text.isEmpty {
+                    if let text = try? await item.load(.stringValue), !text.isEmpty {
                         artist = text
                     }
                 case .commonKeyAlbumName:
-                    if let value = try? await item.load(.stringValue), let text = value, !text.isEmpty {
+                    if let text = try? await item.load(.stringValue), !text.isEmpty {
                         album = text
                     }
                 case .commonKeyArtwork:
-                    if let value = try? await item.load(.dataValue), let data = value {
+                    if let data = try? await item.load(.dataValue) {
                         artworkData = data
                     }
                 default:
