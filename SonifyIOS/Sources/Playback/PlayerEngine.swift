@@ -318,8 +318,10 @@ final class PlayerEngine: ObservableObject {
     }
 
     /// 曲库删除某首歌时同步清掉队列；删的是当前曲目就顺延。
-    func handleTrackDeleted(_ trackID: String) {
-        guard let position = queue.firstIndex(where: { $0.id == trackID }) else { return }
+    func handleTrackDeleted(_ trackID: String, fileURL: URL? = nil) {
+        guard let position = queue.firstIndex(where: {
+            $0.id == trackID || (fileURL != nil && $0.fileURL == fileURL)
+        }) else { return }
         removeFromQueue(at: position)
     }
 

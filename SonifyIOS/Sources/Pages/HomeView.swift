@@ -234,46 +234,46 @@ struct TrackRow: View {
     var onDelete: (() -> Void)? = nil
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                ArtworkView(track: track, cornerRadius: 10)
-                    .frame(width: 46, height: 46)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(track.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(isCurrent ? Theme.accents[7] : Theme.primaryText)
-                        .lineLimit(1)
-                    Text(track.displaySubtitle)
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.secondaryText)
-                        .lineLimit(1)
-                }
-                Spacer()
-                if showsFavorite, let onToggleFavorite = onToggleFavorite {
-                    Button(action: onToggleFavorite) {
-                        Image(systemName: isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(isFavorite ? Theme.accents[0] : Theme.tertiaryText)
-                            .frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.plain)
-                }
-                if let onDelete = onDelete {
-                    Button(action: onDelete) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Theme.accents[0])
-                            .frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Text(track.durationText)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundColor(Theme.tertiaryText)
+        // 注意：这里不能用 Button 包整行。iOS 15 上 Button 里再套 Button，点击会被外层吃掉，
+        // 垃圾桶按钮就永远点不到（表现为"点了没反应/反而开始播放"）。改用 tap 手势。
+        HStack(spacing: 12) {
+            ArtworkView(track: track, cornerRadius: 10)
+                .frame(width: 46, height: 46)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(track.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(isCurrent ? Theme.accents[7] : Theme.primaryText)
+                    .lineLimit(1)
+                Text(track.displaySubtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .lineLimit(1)
             }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            Spacer()
+            if showsFavorite, let onToggleFavorite = onToggleFavorite {
+                Button(action: onToggleFavorite) {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isFavorite ? Theme.accents[0] : Theme.tertiaryText)
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+            }
+            if let onDelete = onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.accents[0])
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+            }
+            Text(track.durationText)
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundColor(Theme.tertiaryText)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
     }
 }

@@ -1,6 +1,32 @@
 import Combine
 import Foundation
 
+/// 删除落盘逻辑单独抽出来，方便单元测试（Services 里不依赖 SwiftUI）。
+enum TrackFileRemoval {
+    @discardableResult
+    static func remove(audio url: URL, fileManager: FileManager = .default) -> Bool {
+        var removedAny = false
+        if fileManager.fileExists(atPath: url.path) {
+            do {
+                try fileManager.removeItem(at: url)
+                removedAny = true
+            } catch {
+                // 删不掉文件也别阻断：调用方随后会把它从库里摘掉。
+            }
+        }
+        let lyricURL = url.deletingPathExtension().appendingPathExtension("lrc")
+        if fileManager.fileExists(atPath: lyricURL.path) {
+            try? fileManager.removeItem(at: lyricURL)
+        }
+        // 若所在子目录已空（演示曲的「示例曲」目录），一起收掉，避免留空壳目录。
+        let folder = url.deletingLastPathComponent()
+        if let contents = try? fileManager.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
+            try? fileManager.removeItem(at: folder)
+        }
+        return removedAny
+    }
+}
+
 /// 资料库状态。对应 Android `data/libraries` + `FavoriteRepository`。
 @MainActor
 final class LibraryStore: ObservableObject {
@@ -115,23 +141,20 @@ final class LibraryStore: ObservableObject {
     }
 
     /// 删除一首歌：文件、同名歌词、收藏记录、播放队列一起清。
+    /// 即使文件删失败（占位、权限）也必须把条目从内存里摘掉，否则用户会觉得"删不掉"。
     func delete(_ track: Track) {
         if let url = track.fileURL {
-            try? FileManager.default.removeItem(at: url)
-            let lyricURL = url.deletingPathExtension().appendingPathExtension("lrc")
-            try? FileManager.default.removeItem(at: lyricURL)
-            // 演示曲文件夹空了就一起收掉，避免留一个空目录。
-            let folder = url.deletingLastPathComponent()
-            if let contents = try? FileManager.default.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
-                try? FileManager.default.removeItem(at: folder)
-            }
+            TrackFileRemoval.remove(audio: url)
         }
 
-        tracks.removeAll { $0.id == track.id }
+        tracks.removeAll { $0.id == track.id || $0.fileURL == track.fileURL }
+
         var ids = favoriteIDs
         ids.remove(track.id)
         favoriteIDs = ids
-        PlayerEngine.shared.handleTrackDeleted(track.id)
+
+        // 队列里的同一首（按 id 和文件地址双匹配）一起下掉。
+        PlayerEngine.shared.handleTrackDeleted(track.id, fileURL: track.fileURL)
     }
 
     func isFavorite(_ track: Track) -> Bool {

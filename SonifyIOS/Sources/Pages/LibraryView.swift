@@ -12,6 +12,7 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var isManaging = false
     @State private var pendingDeletion: Track?
+    @State private var deletionNotice: String?
     @State private var sortMode: SortMode = .title
 
     private enum SortMode: String, CaseIterable, Hashable {
@@ -26,6 +27,16 @@ struct LibraryView: View {
                 searchBar
                     .padding(.horizontal, Theme.pagePadding)
                     .padding(.bottom, 12)
+
+                if let notice = deletionNotice {
+                    Text(notice)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Theme.primaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Theme.surface))
+                        .padding(.bottom, 8)
+                }
 
                 ScrollViewReader { proxy in
                 ZStack(alignment: .trailing) {
@@ -142,7 +153,16 @@ struct LibraryView: View {
         ) {
             Button("删除文件", role: .destructive) {
                 if let track = pendingDeletion {
+                    let title = track.title
                     library.delete(track)
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        deletionNotice = "已删除《\(title)》"
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            deletionNotice = nil
+                        }
+                    }
                 }
                 pendingDeletion = nil
             }
