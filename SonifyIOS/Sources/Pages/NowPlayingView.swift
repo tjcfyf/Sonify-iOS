@@ -11,6 +11,7 @@ struct NowPlayingView: View {
     @State private var showsQueue = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
+    @State private var dominantColor: Color?
 
     private var track: Track? { engine.currentTrack }
 
@@ -48,6 +49,10 @@ struct NowPlayingView: View {
         }
         .onAppear {
             scrubTime = engine.currentTime
+            refreshDominantColor()
+        }
+        .onChange(of: engine.currentTrack?.id) { _ in
+            refreshDominantColor()
         }
     }
 
@@ -62,6 +67,14 @@ struct NowPlayingView: View {
                 .blur(radius: 90, opaque: true)
                 .opacity(0.55)
                 .ignoresSafeArea()
+            if let dominantColor = dominantColor {
+                LinearGradient(
+                    colors: [dominantColor.opacity(0.38), .clear, .black.opacity(0.45)],
+                    startPoint: .topLeading,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            }
             LinearGradient(
                 colors: [Color.black.opacity(0.15), Color.black.opacity(0.65)],
                 startPoint: .top,
@@ -268,6 +281,49 @@ struct NowPlayingView: View {
                     highlighted: engine.sleepRemaining != nil
                 )
             }
+
+            Menu {
+                Button {
+                    engine.toggleShuffle()
+                } label: {
+                    Label(engine.isShuffled ? "关闭随机播放" : "开启随机播放", systemImage: "shuffle")
+                }
+                ForEach(PlayerEngine.RepeatMode.allCases, id: \.self) { mode in
+                    Button {
+                        engine.repeatMode = mode
+                    } label: {
+                        Label(repeatTitle(mode), systemImage: mode == .one ? "repeat.1" : "repeat")
+                    }
+                }
+            } label: {
+                toolChip(
+                    icon: engine.repeatMode.icon,
+                    title: engine.isShuffled ? "随机" : repeatTitle(engine.repeatMode),
+                    highlighted: engine.isShuffled || engine.repeatMode != .off
+                )
+            }
+        }
+    }
+
+    private func repeatTitle(_ mode: PlayerEngine.RepeatMode) -> String {
+        switch mode {
+        case .off: return "循环"
+        case .all: return "列表"
+        case .one: return "单曲"
+        }
+    }
+
+    private func refreshDominantColor() {
+        let data = engine.currentTrack?.artworkData
+        guard let data = data else {
+            dominantColor = nil
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let color = ArtworkPalette.averageColor(from: data)
+            DispatchQueue.main.async {
+                dominantColor = color
+            }
         }
     }
 
@@ -296,28 +352,64 @@ struct NowPlayingView: View {
 
     private var queueSheet: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(Array(engine.queue.enumerated()), id: \.element.id) { index, item in
-                        TrackRow(
-                            track: item,
-                            isCurrent: engine.currentTrack?.id == item.id,
-                            onTap: { engine.play(at: index) },
-                            onToggleFavorite: nil
-                        )
-                    }
+            List {
+                ForEach(Array(engine.queue.enumerated()), id: \.element.id) { index, item in
+                    queueRow(item, index: index)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparatorTint(Theme.separator)
                 }
-                .pagePadding()
+                .onDelete { offsets in
+                    engine.removeFromQueue(at: offsets)
+                }
+                .onMove { source, destination in
+                    engine.moveQueue(fromOffsets: source, toOffset: destination)
+                }
             }
+            .listStyle(.plain)
             .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("播放队列")
+            .navigationTitle("播放队列 · \(engine.queue.count)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
+                        .foregroundColor(settings.accent)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") { showsQueue = false }
                 }
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear {
+            // iOS 15 的 List 默认白底，只能从 UITableView 外观层压掉。
+            UITableView.appearance().backgroundColor = .clear
+        }
+    }
+
+    private func queueRow(_ item: Track, index: Int) -> some View {
+        HStack(spacing: 12) {
+            ArtworkView(track: item, cornerRadius: 10)
+                .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(index == engine.index ? settings.accent : Theme.primaryText)
+                    .lineLimit(1)
+                Text(item.displaySubtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if index == engine.index {
+                Image(systemName: engine.isPlaying ? "waveform" : "pause.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(settings.accent)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            engine.play(at: index)
+        }
     }
 }

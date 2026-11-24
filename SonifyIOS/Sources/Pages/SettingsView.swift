@@ -123,7 +123,18 @@ struct SettingsView: View {
             VStack(spacing: 12) {
                 toggleRow(title: "显示翻译 / 罗马音", isOn: $settings.showTranslation)
                 Divider().background(Theme.separator)
-                toggleRow(title: "锁屏显示当前歌词行", isOn: $settings.backgroundLyricLine)
+                toggleRow(
+                    title: "锁屏显示当前歌词行",
+                    isOn: Binding(
+                        get: { settings.backgroundLyricLine },
+                        set: { enabled in
+                            settings.backgroundLyricLine = enabled
+                            NowPlayingCenter.lyricLineEnabled = enabled
+                            engine.lockScreenLyricEnabled = enabled
+                            engine.refreshLockScreenInfo()
+                        }
+                    )
+                )
                 Text("iOS 非越狱无法实现 Android 的状态栏歌词（Hook 方案）；这里把当前歌词行写进锁屏副标题，是唯一合法途径。")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.tertiaryText)

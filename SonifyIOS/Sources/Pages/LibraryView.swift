@@ -23,6 +23,8 @@ struct LibraryView: View {
                     .padding(.horizontal, Theme.pagePadding)
                     .padding(.bottom, 12)
 
+                ScrollViewReader { proxy in
+                ZStack(alignment: .trailing) {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         ForEach(groups, id: \.key) { group in
@@ -47,6 +49,7 @@ struct LibraryView: View {
                                     }
                                 }
                             }
+                            .id(group.key)
                         }
                         if library.filteredTracks.isEmpty {
                             Text(library.tracks.isEmpty ? "还没有歌曲，点右上角导入。" : "没有匹配的结果。")
@@ -58,6 +61,9 @@ struct LibraryView: View {
                     }
                     .pagePadding()
                     .padding(.bottom, 130)
+                }
+                indexBar(proxy: proxy)
+                }
                 }
             }
             .background(Theme.background.ignoresSafeArea())
@@ -125,6 +131,32 @@ struct LibraryView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(GlassSurface(style: GlassStyle(intensity: 0.75, cornerRadius: 16)) { Color.clear })
+    }
+
+    /// 字母索引条（Android 的 MochiIndexBar 等价物）。iOS 15 没有系统索引栏，
+    /// 这里在右侧叠一列字母，点一下滚到对应分组。
+    private func indexBar(proxy: ScrollViewProxy) -> some View {
+        VStack(spacing: 1) {
+            ForEach(groups.map(\.key), id: \.self) { key in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(key, anchor: .top)
+                    }
+                } label: {
+                    Text(key)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Theme.secondaryText)
+                        .frame(width: 18, height: 15)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 3)
+        .background(
+            GlassSurface(style: GlassStyle(intensity: 0.75, cornerRadius: 10)) { Color.clear }
+        )
+        .padding(.trailing, 2)
     }
 
     private var groups: [(key: String, tracks: [Track])] {

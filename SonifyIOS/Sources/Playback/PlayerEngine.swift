@@ -23,6 +23,30 @@ final class PlayerEngine: ObservableObject {
     @Published var playbackRate: Float = 1.0
     @Published private(set) var errorMessage: String?
     @Published private(set) var sleepRemaining: TimeInterval?
+    @Published var repeatMode: RepeatMode = .off
+    @Published private(set) var isShuffled = false
+
+    /// 锁屏是否把当前歌词行写进副标题（设置项）。
+    var lockScreenLyricEnabled = true
+
+    enum RepeatMode: String, CaseIterable, Codable {
+        case off, one, all
+
+        var next: RepeatMode {
+            switch self {
+            case .off: return .all
+            case .all: return .one
+            case .one: return .off
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .off, .all: return "repeat"
+            case .one: return "repeat.1"
+            }
+        }
+    }
 
     var currentTrack: Track? {
         guard queue.indices.contains(index) else { return nil }
@@ -40,6 +64,7 @@ final class PlayerEngine: ObservableObject {
     private var interruptionObserver: NSObjectProtocol?
     private var routeObserver: NSObjectProtocol?
 
+    private var statusObservation: NSKeyValueObservation?
     private var sleepTimer: Timer?
     private var sleepDeadline: Date?
 
@@ -219,8 +244,43 @@ final class PlayerEngine: ObservableObject {
     func next() {
         guard !queue.isEmpty else { return }
         let wasPlaying = isPlaying
-        index = (index + 1) % queue.count
+        index = nextIndex(forward: true)
         loadCurrentTrack(autoPlay: wasPlaying)
+    }
+
+    private func nextIndex(forward: Bool) -> Int {
+        guard queue.count > 1 else { return index }
+        if isShuffled {
+            // 随机模式：避开当前曲目，避免"随机到同一首"的观感。
+            var candidate = index
+            for _ in 0..<8 {
+                candidate = Int.random(in: 0..<queue.count)
+                if candidate != index { break }
+            }
+            return candidate
+        }
+        return forward ? (index + 1) % queue.count : (index - 1 + queue.count) % queue.count
+    }
+
+    func cycleRepeatMode() {
+        repeatMode = repeatMode.next
+    }
+
+    func toggleShuffle() {
+        isShuffled.toggle()
+        refreshNowPlaying(force: true)
+    }
+
+    /// 队列拖拽排序后要跟着当前曲目走，否则 index 会指错。
+    func moveQueue(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let currentID = currentTrack?.id
+        queue.move(fromOffsets: source, toOffset: destination)
+        if let currentID = currentID, let newIndex = queue.firstIndex(where: { $0.id == currentID }) {
+            index = newIndex
+        } else if !queue.isEmpty {
+            index = min(index, queue.count - 1)
+        }
+        persistState()
     }
 
     func previous() {
@@ -254,6 +314,13 @@ final class PlayerEngine: ObservableObject {
         } else if removingCurrent {
             index = min(index, queue.count - 1)
             loadCurrentTrack(autoPlay: isPlaying)
+        }
+    }
+
+    func removeFromQueue(at offsets: IndexSet) {
+        // 倒序删除，避免前面的删除把后面的索引位移。
+        for position in offsets.sorted(by: >) {
+            removeFromQueue(at: position)
         }
     }
 
@@ -400,19 +467,25 @@ final class PlayerEngine: ObservableObject {
         currentTime = 0
         duration = track.duration
 
-        Task { @MainActor in
-            if let loaded = try? await item.asset.load(.duration) {
-                let seconds = loaded.seconds
-                if seconds.isFinite, seconds > 0 {
-                    self.duration = seconds
-                    self.persistState()
+        // KVO：等到 readyToPlay 再应用恢复进度，比固定延时可预期得多（M1 替换 M0 的 sleep 方案）。
+        statusObservation = item.observe(\.status, options: [.new, .initial]) { [weak self] observed, _ in
+            guard observed.status == .readyToPlay else { return }
+            Task { @MainActor in
+                guard let self = self, self.player.currentItem === observed else { return }
+                let itemDuration = observed.duration.seconds
+                if itemDuration.isFinite, itemDuration > 0 {
+                    self.duration = itemDuration
                 }
+                if let pending = self.pendingSeek {
+                    self.pendingSeek = nil
+                    self.seek(to: pending)
+                    if !self.isPlaying {
+                        self.player.pause()
+                    }
+                }
+                self.persistState()
+                self.refreshNowPlaying(force: true)
             }
-        }
-
-        if let pending = pendingSeek {
-            pendingSeek = nil
-            seek(to: pending)
         }
 
         if autoPlay {
@@ -425,14 +498,20 @@ final class PlayerEngine: ObservableObject {
     }
 
     private func handlePlaybackEnded() {
-        // 单曲循环由 queue 只有一首时自然成立；多首则顺延。
-        if queue.count > 1 {
+        switch repeatMode {
+        case .one:
+            seek(to: 0)
+            resume()
+        case .all:
             next()
-        } else {
-            isPlaying = false
-            player.seek(to: .zero)
-            currentTime = 0
-            refreshNowPlaying(force: true)
+        case .off:
+            if index + 1 < queue.count {
+                next()
+            } else {
+                isPlaying = false
+                currentTime = duration
+                refreshNowPlaying(force: true)
+            }
         }
     }
 
@@ -456,6 +535,9 @@ final class PlayerEngine: ObservableObject {
     private func refreshNowPlaying(force: Bool) {
         guard force || Date().timeIntervalSince(lastNowPlayingRefresh) > 1.0 else { return }
         lastNowPlayingRefresh = Date()
+        if !lockScreenLyricEnabled {
+            NowPlayingCenter.currentLyricLine = nil
+        }
         nowPlaying.update(
             track: currentTrack,
             elapsed: currentTime,
@@ -463,6 +545,11 @@ final class PlayerEngine: ObservableObject {
             isPlaying: isPlaying,
             rate: desiredRate
         )
+    }
+
+    /// 给设置页用：改完锁屏歌词开关后立刻重刷一次 Now Playing。
+    func refreshLockScreenInfo() {
+        refreshNowPlaying(force: true)
     }
 
     // MARK: - 状态持久化（对应 Android PlaybackRestoreGate）
@@ -475,10 +562,8 @@ final class PlayerEngine: ObservableObject {
     }
 
     func persistState() {
-        guard !queue.isEmpty else {
-            clearPersistedState()
-            return
-        }
+        // 队列为空时保留上一次快照：App 启动时先 setRate 再 restore，若这里清空会丢队列。
+        guard !queue.isEmpty else { return }
         // 封面与歌词不进恢复快照，避免 UserDefaults 膨胀。
         let slim = queue.map { track -> Track in
             var copy = track
@@ -509,13 +594,8 @@ final class PlayerEngine: ObservableObject {
         playbackRate = state.rate
         pendingSeek = state.time
         currentTime = state.time
+        // 进度由 KVO readyToPlay 回调应用，这里不再 sleep。
         loadCurrentTrack(autoPlay: false)
-        // 等 AVPlayerItem 就绪后再 seek（M0 用固定延时，M1 改成 KVO status == .readyToPlay）。
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            self.seek(to: state.time)
-            self.player.pause()
-        }
     }
 }
 

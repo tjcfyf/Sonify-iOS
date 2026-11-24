@@ -45,6 +45,8 @@ struct RootView: View {
             engine.persistState()
         }
         .onAppear {
+            NowPlayingCenter.lyricLineEnabled = settings.backgroundLyricLine
+            engine.lockScreenLyricEnabled = settings.backgroundLyricLine
             library.bootstrapIfNeeded()
             engine.bootstrapIfNeeded()
             if settings.autoRestorePlayback {

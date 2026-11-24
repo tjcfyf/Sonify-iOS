@@ -116,13 +116,17 @@ final class NowPlayingCenter {
         }
 
         // 状态栏歌词的 iOS 降级方案：把"当前歌词行"塞进副标题（非越狱唯一可行途径，见方案 §3.5）。
-        if let line = NowPlayingCenter.currentLyricLine, !line.isEmpty {
+        if NowPlayingCenter.lyricLineEnabled,
+           let line = NowPlayingCenter.currentLyricLine, !line.isEmpty {
             info[MPMediaItemPropertyAlbumTitle] = line
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
-    /// 由播放器在每帧/每行变化时写入；为空则显示专辑名。
+    /// 由歌词视图在每行变化时写入；为空则显示专辑名。
     static var currentLyricLine: String?
+
+    /// 设置页「锁屏显示当前歌词行」的总开关。
+    static var lyricLineEnabled = true
 }
