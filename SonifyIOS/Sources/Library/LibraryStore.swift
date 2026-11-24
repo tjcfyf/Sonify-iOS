@@ -11,6 +11,8 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var lastScanDate: Date?
     @Published var searchText: String = ""
+    @Published private(set) var isGeneratingDemo = false
+    @Published private(set) var lastError: String?
 
     private let favoritesKey = "sonify.favorites"
 
@@ -70,9 +72,28 @@ final class LibraryStore: ObservableObject {
     }
 
     /// 生成一首本地合成演示曲（无版权、无网络），用于"暂时没有歌"时验证播放与歌词。
+    /// 放到后台线程写文件，避免主线程卡顿；失败会把原因留在 `lastError`。
     func createDemoTrack() {
-        DemoTrackFactory.ensure(in: documentsURL)
-        Task { await refresh() }
+        guard !isGeneratingDemo else { return }
+        isGeneratingDemo = true
+        lastError = nil
+        let directory = documentsURL
+
+        Task {
+            let created = await Task.detached(priority: .userInitiated) { () -> Bool in
+                DemoTrackFactory.ensure(in: directory) != nil
+            }.value
+
+            isGeneratingDemo = false
+            if created {
+                await refresh()
+                if tracks.isEmpty {
+                    lastError = "演示曲已生成，但扫描没找到，试试设置里「重新扫描」"
+                }
+            } else {
+                lastError = "演示曲生成失败（写文件出错）"
+            }
+        }
     }
 
     func importFiles(_ urls: [URL]) {

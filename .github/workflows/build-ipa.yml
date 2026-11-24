@@ -52,6 +52,18 @@ jobs:
             DEVELOPMENT_TEAM="" \
             build | tee ../build.log | tail -n 120
 
+      - name: Run unit tests (simulator)
+        continue-on-error: true
+        run: |
+          cd SonifyIOS
+          DEVICE=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9A-Za-z ]+' | head -n 1 | sed 's/ *$//')
+          echo "simulator: $DEVICE"
+          xcodebuild test \
+            -project Sonify.xcodeproj \
+            -scheme Sonify \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO | tail -n 120
+
       - name: Package unsigned IPA
         run: |
           set -e

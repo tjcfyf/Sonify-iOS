@@ -172,6 +172,10 @@ struct HomeView: View {
         VStack(spacing: 14) {
             ArtworkView(track: nil, cornerRadius: 24)
                 .frame(width: 120, height: 120)
+            if library.isGeneratingDemo {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+            }
             Text("还没有本地音乐")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Theme.primaryText)
@@ -179,6 +183,12 @@ struct HomeView: View {
                 .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
                 .multilineTextAlignment(.center)
+            if let error = library.lastError {
+                Text(error)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.accents[0])
+                    .multilineTextAlignment(.center)
+            }
             Button {
                 library.createDemoTrack()
             } label: {
