@@ -36,21 +36,25 @@ struct GlassStyle: Equatable {
 struct GlassBackground: UIViewRepresentable {
     var style: GlassStyle
 
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> UIVisualEffectView {
         let view = UIVisualEffectView(effect: UIBlurEffect(style: style.material))
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
+        context.coordinator.material = style.material
         return view
     }
 
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
-        guard let current = uiView.effect as? UIBlurEffect else {
-            uiView.effect = UIBlurEffect(style: style.material)
-            return
-        }
-        if current.style != style.material {
-            uiView.effect = UIBlurEffect(style: style.material)
-        }
+        // UIBlurEffect 没有公开的 style 属性，自己记一份，避免每帧重建 effect。
+        guard context.coordinator.material != style.material else { return }
+        context.coordinator.material = style.material
+        uiView.effect = UIBlurEffect(style: style.material)
+    }
+
+    final class Coordinator {
+        var material: UIBlurEffect.Style?
     }
 }
 
