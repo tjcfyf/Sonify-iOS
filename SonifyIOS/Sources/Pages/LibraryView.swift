@@ -209,7 +209,6 @@ struct LibraryView: View {
             source = source.filter { library.isFavorite($0) }
         }
         switch sortMode {
-        switch sortMode {
         case .title:
             break
         case .artist:
