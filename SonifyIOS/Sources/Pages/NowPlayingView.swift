@@ -204,9 +204,9 @@ struct NowPlayingView: View {
                 LyricsView(
                     entries: lyrics,
                     timeMs: Float(engine.currentTime * 1000),
-                    scale: CGFloat(settings.lyricScale),
                     accent: settings.accent,
-                    showTranslation: settings.showTranslation
+                    showTranslation: settings.showTranslation,
+                    scale: CGFloat(settings.lyricScale)
                 )
             }
         }
