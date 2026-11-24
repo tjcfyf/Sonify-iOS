@@ -27,10 +27,14 @@ enum DemoTrackFactory {
         let wavURL = folder.appendingPathComponent("\(baseName).wav")
         let lrcURL = folder.appendingPathComponent("\(baseName).lrc")
 
-        if !FileManager.default.fileExists(atPath: wavURL.path) {
+        // 上次失败可能留下 0 字节/半截的 wav，必须按大小校验后重写，不能只看"文件存在"。
+        let minimumBytes = 1_000_000
+        let existingSize = (try? FileManager.default.attributesOfItem(atPath: wavURL.path)[.size] as? NSNumber)?.intValue ?? 0
+        if existingSize < minimumBytes {
             do {
                 try writeWave(to: wavURL)
             } catch {
+                try? FileManager.default.removeItem(at: wavURL)
                 return nil
             }
         }
