@@ -114,6 +114,26 @@ final class LibraryStore: ObservableObject {
         Task { await refresh() }
     }
 
+    /// 删除一首歌：文件、同名歌词、收藏记录、播放队列一起清。
+    func delete(_ track: Track) {
+        if let url = track.fileURL {
+            try? FileManager.default.removeItem(at: url)
+            let lyricURL = url.deletingPathExtension().appendingPathExtension("lrc")
+            try? FileManager.default.removeItem(at: lyricURL)
+            // 演示曲文件夹空了就一起收掉，避免留一个空目录。
+            let folder = url.deletingLastPathComponent()
+            if let contents = try? FileManager.default.contentsOfDirectory(atPath: folder.path), contents.isEmpty {
+                try? FileManager.default.removeItem(at: folder)
+            }
+        }
+
+        tracks.removeAll { $0.id == track.id }
+        var ids = favoriteIDs
+        ids.remove(track.id)
+        favoriteIDs = ids
+        PlayerEngine.shared.handleTrackDeleted(track.id)
+    }
+
     func isFavorite(_ track: Track) -> Bool {
         favoriteIDs.contains(track.id)
     }

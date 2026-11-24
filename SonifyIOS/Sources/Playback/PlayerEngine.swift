@@ -317,6 +317,12 @@ final class PlayerEngine: ObservableObject {
         }
     }
 
+    /// 曲库删除某首歌时同步清掉队列；删的是当前曲目就顺延。
+    func handleTrackDeleted(_ trackID: String) {
+        guard let position = queue.firstIndex(where: { $0.id == trackID }) else { return }
+        removeFromQueue(at: position)
+    }
+
     func removeFromQueue(at offsets: IndexSet) {
         // 倒序删除，避免前面的删除把后面的索引位移。
         for position in offsets.sorted(by: >) {

@@ -21,28 +21,18 @@ struct NowPlayingView: View {
     }
 
     var body: some View {
-        ZStack {
-            background
-            VStack(spacing: 0) {
-                topBar
-                Spacer(minLength: 0)
-                if showsLyrics {
-                    lyricsPanel
-                        .frame(maxHeight: .infinity)
+        GeometryReader { geometry in
+            // 横屏宽度够（iPhone 12 横屏约 844pt）才走分栏；竖屏保持原布局。
+            let isWide = geometry.size.width >= 640 && geometry.size.width > geometry.size.height
+            ZStack {
+                background
+
+                if isWide {
+                    landscapeLayout
                 } else {
-                    artworkPanel
+                    portraitLayout
                 }
-                Spacer(minLength: 8)
-                trackInfo
-                progressSection
-                    .padding(.top, 18)
-                controls
-                    .padding(.top, 22)
-                    .padding(.bottom, 12)
-                bottomTools
-                    .padding(.bottom, 28)
             }
-            .pagePadding()
         }
         .sheet(isPresented: $showsQueue) {
             queueSheet
@@ -54,6 +44,52 @@ struct NowPlayingView: View {
         .onChange(of: engine.currentTrack?.id) { _ in
             refreshDominantColor()
         }
+    }
+
+    private var portraitLayout: some View {
+        VStack(spacing: 0) {
+            topBar
+            Spacer(minLength: 0)
+            if showsLyrics {
+                lyricsPanel
+                    .frame(maxHeight: .infinity)
+            } else {
+                artworkPanel
+            }
+            Spacer(minLength: 8)
+            trackInfo
+            progressSection
+                .padding(.top, 18)
+            controls
+                .padding(.top, 22)
+                .padding(.bottom, 12)
+            bottomTools
+                .padding(.bottom, 28)
+        }
+        .pagePadding()
+    }
+
+    /// 横屏分栏：左边封面 + 信息 + 控制，右边整页歌词（Android `NowPlayingLandscape` 的结构）。
+    private var landscapeLayout: some View {
+        HStack(alignment: .center, spacing: 28) {
+            VStack(spacing: 14) {
+                topBar
+                ArtworkView(track: track, cornerRadius: 24)
+                    .frame(maxWidth: 300, maxHeight: 300)
+                    .shadow(color: .black.opacity(0.45), radius: 24, x: 0, y: 14)
+                trackInfo
+                progressSection
+                controls
+                bottomTools
+            }
+            .frame(maxWidth: 420)
+
+            lyricsPanel
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 60)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
     }
 
     // MARK: - 背景

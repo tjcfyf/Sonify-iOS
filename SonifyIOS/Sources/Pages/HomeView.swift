@@ -231,6 +231,7 @@ struct TrackRow: View {
     var isFavorite: Bool = false
     var onTap: () -> Void
     var onToggleFavorite: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
         Button(action: onTap) {
@@ -253,6 +254,15 @@ struct TrackRow: View {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(isFavorite ? Theme.accents[0] : Theme.tertiaryText)
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if let onDelete = onDelete {
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.accents[0])
                             .frame(width: 30, height: 30)
                     }
                     .buttonStyle(.plain)

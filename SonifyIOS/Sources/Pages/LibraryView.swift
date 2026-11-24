@@ -10,6 +10,8 @@ struct LibraryView: View {
 
     @FocusState private var searchFocused: Bool
     @State private var isImporting = false
+    @State private var isManaging = false
+    @State private var pendingDeletion: Track?
     @State private var sortMode: SortMode = .title
 
     private enum SortMode: String, CaseIterable, Hashable {
@@ -46,8 +48,21 @@ struct LibraryView: View {
                                                 let queue = library.filteredTracks
                                                 engine.play(queue: queue, startAt: queue.firstIndex(of: track) ?? 0)
                                             },
-                                            onToggleFavorite: { library.toggleFavorite(track) }
+                                            onToggleFavorite: { library.toggleFavorite(track) },
+                                            onDelete: isManaging ? { pendingDeletion = track } : nil
                                         )
+                                        .contextMenu {
+                                            Button {
+                                                library.toggleFavorite(track)
+                                            } label: {
+                                                Label(library.isFavorite(track) ? "取消收藏" : "收藏", systemImage: "heart")
+                                            }
+                                            Button(role: .destructive) {
+                                                pendingDeletion = track
+                                            } label: {
+                                                Label("删除歌曲", systemImage: "trash")
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -72,6 +87,15 @@ struct LibraryView: View {
             .navigationTitle("资料库")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(isManaging ? "完成" : "管理") {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isManaging.toggle()
+                        }
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(settings.accent)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         isImporting = true
@@ -107,6 +131,26 @@ struct LibraryView: View {
                 searchFocused = true
             }
             router.focusLibrarySearch = false
+        }
+        .confirmationDialog(
+            pendingDeletion.map { "删除《\($0.title)》？" } ?? "删除这首歌？",
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("删除文件", role: .destructive) {
+                if let track = pendingDeletion {
+                    library.delete(track)
+                }
+                pendingDeletion = nil
+            }
+            Button("取消", role: .cancel) {
+                pendingDeletion = nil
+            }
+        } message: {
+            Text("会同时删除同名 .lrc 歌词，且不可恢复。")
         }
         .fileImporter(
             isPresented: $isImporting,
