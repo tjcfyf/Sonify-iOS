@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode (15.x if available, else default)
+      - name: Select Xcode
         run: |
           set -e
           ls /Applications | grep -i xcode || true
@@ -59,7 +59,8 @@ jobs:
           APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           echo "APP: $APP_PATH"
           if [ -z "$APP_PATH" ]; then echo "找不到 .app，构建失败"; exit 1; fi
-          rm -rf ../Payload && mkdir -p ../Payload
+          rm -rf ../Payload
+          mkdir -p ../Payload
           cp -R "$APP_PATH" ../Payload/
           cd ..
           zip -qry Sonify-unsigned.ipa Payload
@@ -82,16 +83,29 @@ jobs:
           path: Sonify-unsigned.ipa
           retention-days: 14
 
-      - name: Attach IPA to Release
+      - name: Attach IPA to per-build Release
         if: success() && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Sonify iOS unsigned build #${{ github.run_number }}
           body: |
-            未签名 IPA（用于 TrollStore / 自签工具）。
-            - 构建时间：${{ github.event.repository.updated_at }}
-            - 安装方式见仓库 README 的「没有电脑怎么装」一节。
+            未签名 IPA，用于 TrollStore / 自签工具。
+            安装方式见仓库 README 的「没有电脑怎么装」一节。
           files: Sonify-unsigned.ipa
           draft: false
           prerelease: true
+
+      - name: Update stable "latest" download
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          if ! gh release view latest >/dev/null 2>&1; then
+            gh release create latest \
+              --title "Sonify iOS · 最新构建" \
+              --notes "自动更新的最新未签名 IPA，TrollStore 可直接安装。" \
+              --prerelease
+          fi
+          gh release upload latest Sonify-unsigned.ipa --clobber
