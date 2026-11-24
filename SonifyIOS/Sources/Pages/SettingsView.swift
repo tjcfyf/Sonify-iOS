@@ -210,7 +210,7 @@ struct SettingsView: View {
 
     private func sectionCard<Content: View>(
         title: String,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
