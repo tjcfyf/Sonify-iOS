@@ -61,12 +61,17 @@ struct NowPlayingView: View {
     private var background: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            // 封面取色的简化版：用封面色块做超大模糊，M2 换成 Palette 真实取色 + Pear Wall。
-            ArtworkView(track: track, cornerRadius: 0)
-                .scaleEffect(1.6)
-                .blur(radius: 90, opaque: true)
-                .opacity(0.55)
-                .ignoresSafeArea()
+            if settings.pearMeshEnabled {
+                PearMeshView(colors: meshColors)
+                    .ignoresSafeArea()
+            } else {
+                // 静态方案：封面放大 + 大半径模糊。
+                ArtworkView(track: track, cornerRadius: 0)
+                    .scaleEffect(1.6)
+                    .blur(radius: 90, opaque: true)
+                    .opacity(0.55)
+                    .ignoresSafeArea()
+            }
             if let dominantColor = dominantColor {
                 LinearGradient(
                     colors: [dominantColor.opacity(0.38), .clear, .black.opacity(0.45)],
@@ -311,6 +316,10 @@ struct NowPlayingView: View {
         case .all: return "列表"
         case .one: return "单曲"
         }
+    }
+
+    private var meshColors: [Color] {
+        [dominantColor ?? settings.accent, Theme.background, Color(hex: 0x1C1024)]
     }
 
     private func refreshDominantColor() {

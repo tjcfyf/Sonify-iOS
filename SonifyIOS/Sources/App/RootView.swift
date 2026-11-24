@@ -6,21 +6,21 @@ struct RootView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var settings: SettingsStore
 
-    @State private var selectedTab = 0
+    @StateObject private var router = TabRouter()
     @State private var showsPlayer = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
+            TabView(selection: $router.selected) {
                 HomeView()
                     .tabItem { Label("首页", systemImage: "house.fill") }
-                    .tag(0)
+                    .tag(TabRouter.Tab.home)
                 LibraryView()
                     .tabItem { Label("资料库", systemImage: "music.note.list") }
-                    .tag(1)
+                    .tag(TabRouter.Tab.library)
                 SettingsView()
                     .tabItem { Label("设置", systemImage: "gearshape.fill") }
-                    .tag(2)
+                    .tag(TabRouter.Tab.settings)
             }
             .accentColor(settings.accent)
 
@@ -32,6 +32,7 @@ struct RootView: View {
             }
         }
         .environment(\.accent, settings.accent)
+        .environmentObject(router)
         .sheet(isPresented: $showsPlayer) {
             NowPlayingView()
                 .environmentObject(engine)

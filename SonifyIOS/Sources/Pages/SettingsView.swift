@@ -54,6 +54,14 @@ struct SettingsView: View {
 
                 Divider().background(Theme.separator)
 
+                toggleRow(title: "流体网格背景（实验）", isOn: $settings.pearMeshEnabled)
+                Text("Metal 单 pass 域扭曲，复刻 Android 端 Pear Wall 的流动观感；关掉即回到封面模糊背景。")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider().background(Theme.separator)
+
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("主题色")

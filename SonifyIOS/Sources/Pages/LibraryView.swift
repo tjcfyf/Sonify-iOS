@@ -6,7 +6,9 @@ struct LibraryView: View {
     @EnvironmentObject private var engine: PlayerEngine
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var router: TabRouter
 
+    @FocusState private var searchFocused: Bool
     @State private var isImporting = false
     @State private var sortMode: SortMode = .title
 
@@ -98,6 +100,14 @@ struct LibraryView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onChange(of: router.focusLibrarySearch) { shouldFocus in
+            guard shouldFocus else { return }
+            // 等 Tab 切换完成再抢焦点，否则会抢不到。
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                searchFocused = true
+            }
+            router.focusLibrarySearch = false
+        }
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff],
@@ -115,6 +125,7 @@ struct LibraryView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Theme.tertiaryText)
             TextField("搜索歌曲、艺人、专辑", text: $library.searchText)
+                .focused($searchFocused)
                 .font(.system(size: 14))
                 .foregroundColor(Theme.primaryText)
                 .disableAutocorrection(true)

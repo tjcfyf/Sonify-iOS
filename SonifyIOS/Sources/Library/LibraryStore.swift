@@ -69,6 +69,12 @@ final class LibraryStore: ObservableObject {
         objectWillChange.send()
     }
 
+    /// 生成一首本地合成演示曲（无版权、无网络），用于"暂时没有歌"时验证播放与歌词。
+    func createDemoTrack() {
+        DemoTrackFactory.ensure(in: documentsURL)
+        Task { await refresh() }
+    }
+
     func importFiles(_ urls: [URL]) {
         let fileManager = FileManager.default
         for url in urls {

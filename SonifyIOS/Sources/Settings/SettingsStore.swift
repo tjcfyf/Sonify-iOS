@@ -16,6 +16,7 @@ final class SettingsStore: ObservableObject {
         static let backgroundLyricLine = "settings.backgroundLyricLine"
         static let appendQueueOnPlay = "settings.appendQueueOnPlay"
         static let defaultRate = "settings.defaultRate"
+        static let pearMeshEnabled = "settings.pearMeshEnabled"
     }
 
     @Published var glassIntensity: Double { didSet { store(glassIntensity, Key.glassIntensity) } }
@@ -25,6 +26,7 @@ final class SettingsStore: ObservableObject {
     @Published var backgroundLyricLine: Bool { didSet { store(backgroundLyricLine, Key.backgroundLyricLine) } }
     @Published var appendQueueOnPlay: Bool { didSet { store(appendQueueOnPlay, Key.appendQueueOnPlay) } }
     @Published var defaultRate: Double { didSet { store(defaultRate, Key.defaultRate) } }
+    @Published var pearMeshEnabled: Bool { didSet { store(pearMeshEnabled, Key.pearMeshEnabled) } }
 
     var accent: Color {
         Theme.accents[min(max(0, accentIndex), Theme.accents.count - 1)]
@@ -47,6 +49,7 @@ final class SettingsStore: ObservableObject {
         backgroundLyricLine = defaults.object(forKey: Key.backgroundLyricLine) as? Bool ?? true
         appendQueueOnPlay = defaults.object(forKey: Key.appendQueueOnPlay) as? Bool ?? false
         defaultRate = defaults.object(forKey: Key.defaultRate) as? Double ?? 1.0
+        pearMeshEnabled = defaults.object(forKey: Key.pearMeshEnabled) as? Bool ?? false
     }
 
     private func store(_ value: Any, _ key: String) {

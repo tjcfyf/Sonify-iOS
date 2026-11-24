@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject private var engine: PlayerEngine
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var router: TabRouter
 
     private var recentTracks: [Track] {
         Array(library.tracks.suffix(12)).reversed()
@@ -55,10 +56,10 @@ struct HomeView: View {
             Spacer()
             HStack(spacing: 10) {
                 GlassCircleButton(systemName: "magnifyingglass") {
-                    // M0：搜索跳资料库
+                    router.openLibrarySearch()
                 }
                 GlassCircleButton(systemName: "gearshape.fill") {
-                    // 设置由 Tab 承载，这里只做样式占位
+                    router.openSettings()
                 }
             }
         }
@@ -66,28 +67,42 @@ struct HomeView: View {
 
     private var quickRow: some View {
         HStack(spacing: 12) {
-            quickCard(title: "全部歌曲", icon: "music.note.list", value: "\(library.tracks.count)")
-            quickCard(title: "收藏", icon: "heart.fill", value: "\(library.favoriteTracks.count)")
-            quickCard(title: "当前音质", icon: "waveform", value: "本地")
+            quickCard(title: "全部歌曲", icon: "music.note.list", value: "\(library.tracks.count)") {
+                router.openLibrary()
+            }
+            quickCard(title: "收藏", icon: "heart.fill", value: "\(library.favoriteTracks.count)") {
+                router.openLibrary()
+            }
+            quickCard(title: "设置", icon: "slider.horizontal.3", value: "\(Theme.accents.count) 色") {
+                router.openSettings()
+            }
         }
     }
 
-    private func quickCard(title: String, icon: String, value: String) -> some View {
-        GlassSurface(style: settings.glassStyle) {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(settings.accent)
-                Text(value)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Theme.primaryText)
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Theme.secondaryText)
+    private func quickCard(
+        title: String,
+        icon: String,
+        value: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            GlassSurface(style: settings.glassStyle) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(settings.accent)
+                    Text(value)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Theme.primaryText)
+                    Text(title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
         }
+        .buttonStyle(GlassPressStyle())
     }
 
     @ViewBuilder
@@ -160,10 +175,23 @@ struct HomeView: View {
             Text("还没有本地音乐")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Theme.primaryText)
-            Text("用「资料库」右上角的 + 导入音频文件，\n或通过 iTunes / 访达把文件拖进 Sonify 的 Documents。")
+            Text("用「资料库」右上角的 + 导入音频文件，或把文件拷进 Sonify 的 Documents。\n没有歌也能先点下面生成一段演示音频来试播放与歌词。")
                 .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
                 .multilineTextAlignment(.center)
+            Button {
+                library.createDemoTrack()
+            } label: {
+                Text("生成演示曲")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(settings.accent)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 9)
+                    .background(
+                        GlassSurface(style: GlassStyle(intensity: 0.8, cornerRadius: 14)) { Color.clear }
+                    )
+            }
+            .buttonStyle(GlassPressStyle())
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
