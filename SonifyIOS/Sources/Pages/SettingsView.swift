@@ -132,6 +132,20 @@ struct SettingsView: View {
             VStack(spacing: 12) {
                 toggleRow(title: "显示翻译 / 罗马音", isOn: $settings.showTranslation)
                 Divider().background(Theme.separator)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("歌词字号")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Theme.primaryText)
+                        Spacer()
+                        Text(String(format: "%.0f%%", settings.lyricScale * 100))
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    Slider(value: $settings.lyricScale, in: 0.85...1.4, step: 0.05)
+                        .accentColor(settings.accent)
+                }
+                Divider().background(Theme.separator)
                 toggleRow(
                     title: "锁屏显示当前歌词行",
                     isOn: Binding(

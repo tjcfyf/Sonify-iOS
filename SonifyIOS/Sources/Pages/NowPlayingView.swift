@@ -12,6 +12,7 @@ struct NowPlayingView: View {
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
     @State private var dominantColor: Color?
+    @State private var dragDownOffset: CGFloat = 0
 
     private var track: Track? { engine.currentTrack }
 
@@ -153,6 +154,36 @@ struct NowPlayingView: View {
             .frame(maxWidth: 300, maxHeight: 300)
             .shadow(color: Color.black.opacity(0.5), radius: 30, x: 0, y: 18)
             .padding(.top, 12)
+            .offset(y: dragDownOffset)
+            .gesture(artworkGesture)
+    }
+
+    /// 封面上的手势：左滑下一首、右滑上一首、下滑收起播放页（Android 靠返回键，iOS 没有，手势补位）。
+    private var artworkGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                if value.translation.height > 0, abs(value.translation.height) > abs(value.translation.width) {
+                    dragDownOffset = min(value.translation.height, 220)
+                }
+            }
+            .onEnded { value in
+                defer {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        dragDownOffset = 0
+                    }
+                }
+                if abs(value.translation.width) > abs(value.translation.height) {
+                    if value.translation.width < -60 {
+                        engine.next()
+                    } else if value.translation.width > 60 {
+                        engine.previous()
+                    }
+                    return
+                }
+                if value.translation.height > 120 {
+                    dismiss()
+                }
+            }
     }
 
     private var lyricsPanel: some View {
@@ -173,6 +204,7 @@ struct NowPlayingView: View {
                 LyricsView(
                     entries: lyrics,
                     timeMs: Float(engine.currentTime * 1000),
+                    scale: CGFloat(settings.lyricScale),
                     accent: settings.accent,
                     showTranslation: settings.showTranslation
                 )

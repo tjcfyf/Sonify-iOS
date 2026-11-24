@@ -9,6 +9,11 @@ struct LyricsView: View {
     let timeMs: Float
     var accent: Color = Theme.accents[7]
     var showTranslation: Bool = true
+    /// 字号倍率（设置页滑杆），0.85…1.4。
+    var scale: CGFloat = 1
+
+    private func mainSize(_ isActive: Bool) -> CGFloat { (isActive ? 26 : 19) * scale }
+    private func transSize(_ isActive: Bool) -> CGFloat { (isActive ? 15 : 13) * scale }
 
     private var activeIndex: Int {
         entries.currentIndex(at: timeMs)
@@ -17,7 +22,7 @@ struct LyricsView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 24 * scale) {
                     ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                         row(entry, isActive: index == activeIndex)
                             .id(index)
@@ -49,20 +54,20 @@ struct LyricsView: View {
                 wordLine(entry, isActive: isActive)
             } else {
                 Text(entry.plainText)
-                    .font(.system(size: isActive ? 26 : 19, weight: isActive ? .bold : .semibold))
+                    .font(.system(size: mainSize(isActive), weight: isActive ? .bold : .semibold))
                     .foregroundColor(isActive ? Theme.primaryText : Theme.tertiaryText)
                     .blur(radius: isActive ? 0 : 0.3)
             }
 
             if showTranslation, let translation = entry.translation, !translation.isEmpty {
                 Text(translation)
-                    .font(.system(size: isActive ? 15 : 13, weight: .medium))
+                    .font(.system(size: transSize(isActive), weight: .medium))
                     .foregroundColor(isActive ? Theme.secondaryText : Theme.tertiaryText)
             }
 
             if showTranslation, let romanization = entry.romanization, !romanization.isEmpty {
                 Text(romanization)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.system(size: 12 * scale, weight: .regular))
                     .foregroundColor(Theme.tertiaryText)
             }
         }
@@ -81,11 +86,11 @@ struct LyricsView: View {
                     : 0
 
                 Text(word.text)
-                    .font(.system(size: isActive ? 26 : 19, weight: isActive ? .bold : .semibold))
+                    .font(.system(size: mainSize(isActive), weight: isActive ? .bold : .semibold))
                     .foregroundColor(isActive ? Theme.primaryText.opacity(0.28) : Theme.tertiaryText)
                     .overlay(
                         Text(word.text)
-                            .font(.system(size: isActive ? 26 : 19, weight: isActive ? .bold : .semibold))
+                            .font(.system(size: mainSize(isActive), weight: isActive ? .bold : .semibold))
                             .foregroundColor(accent)
                             .mask(
                                 GeometryReader { geometry in

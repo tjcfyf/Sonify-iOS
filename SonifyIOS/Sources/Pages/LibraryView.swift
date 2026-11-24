@@ -96,11 +96,6 @@ struct LibraryView: View {
             .navigationTitle("资料库")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(settings.accent)
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         isImporting = true
