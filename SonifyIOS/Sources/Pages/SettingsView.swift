@@ -146,6 +146,23 @@ struct SettingsView: View {
                         .accentColor(settings.accent)
                 }
                 Divider().background(Theme.separator)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("歌词延时补偿")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Theme.primaryText)
+                        Spacer()
+                        Text(String(format: "%+.0f ms", settings.lyricOffsetMs))
+                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    Slider(value: $settings.lyricOffsetMs, in: -500...500, step: 50)
+                        .accentColor(settings.accent)
+                    Text("歌词比人声早出现就调正值，晚出现就调负值。")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.tertiaryText)
+                }
+                Divider().background(Theme.separator)
                 toggleRow(
                     title: "锁屏显示当前歌词行",
                     isOn: Binding(

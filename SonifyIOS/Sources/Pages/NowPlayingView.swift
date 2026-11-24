@@ -203,7 +203,7 @@ struct NowPlayingView: View {
             } else {
                 LyricsView(
                     entries: lyrics,
-                    timeMs: Float(engine.currentTime * 1000),
+                    timeMs: Float(engine.currentTime * 1000) + Float(settings.lyricOffsetMs),
                     accent: settings.accent,
                     showTranslation: settings.showTranslation,
                     scale: CGFloat(settings.lyricScale)
