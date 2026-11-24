@@ -45,9 +45,19 @@ final class LibraryStore: ObservableObject {
         }
     }
 
-    private init() {
-        Task { await refresh() }
+    private init() {}
+
+    /// 首帧之后再扫，避免启动时同步枚举大目录。
+    func bootstrapIfNeeded() {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+        Task {
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            await refresh()
+        }
     }
+
+    private var didBootstrap = false
 
     func refresh() async {
         isScanning = true

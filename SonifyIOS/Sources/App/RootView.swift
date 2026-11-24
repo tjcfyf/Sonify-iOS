@@ -45,6 +45,8 @@ struct RootView: View {
             engine.persistState()
         }
         .onAppear {
+            library.bootstrapIfNeeded()
+            engine.bootstrapIfNeeded()
             if settings.autoRestorePlayback {
                 engine.restoreLastSession()
             }

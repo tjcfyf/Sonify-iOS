@@ -18,43 +18,39 @@ struct GlassStyle: Equatable {
     var tintOpacity: Double = 0.07
     var stroke: Bool = true
 
+    /// 强度 → 材质档位（iOS 15 只能选档，不能连续调）。
+    var resolvedMaterial: UIBlurEffect.Style {
+        if intensity >= 0.88 { return .systemThinMaterial }
+        if intensity >= 0.55 { return .systemUltraThinMaterial }
+        return .systemUltraThinMaterial
+    }
+
     static let card = GlassStyle()
     static let panel = GlassStyle(intensity: 1.0, cornerRadius: Theme.panelRadius)
     static let chip = GlassStyle(intensity: 0.8, cornerRadius: 22)
 }
 
-/// 可调强度的模糊底。`intensity` 越小越透。
+/// 模糊底。iOS 15 上**不使用** `UIViewPropertyAnimator` 调 `UIVisualEffectView` 强度：
+/// 那种写法要求视图已进入 window，启动期批量创建时容易触发断言直接闪退。
+/// 这里改成按强度切换材质档位 + 叠加层控制透明度，牺牲一点"连续可调"，换启动稳定。
 struct GlassBackground: UIViewRepresentable {
     var style: GlassStyle
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> UIVisualEffectView {
         let view = UIVisualEffectView(effect: UIBlurEffect(style: style.material))
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
-
-        let animator = UIViewPropertyAnimator(duration: 1, curve: .linear) { [weak view] in
-            view?.effect = nil
-        }
-        // 必须先 start 再 pause，fractionComplete 才会生效。
-        animator.startAnimation()
-        animator.pauseAnimation()
-        animator.fractionComplete = CGFloat(1 - style.intensity)
-        context.coordinator.animator = animator
         return view
     }
 
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
-        let fraction = CGFloat(1 - style.intensity)
-        guard let animator = context.coordinator.animator else { return }
-        if abs(animator.fractionComplete - fraction) > 0.01 {
-            animator.fractionComplete = fraction
+        guard let current = uiView.effect as? UIBlurEffect else {
+            uiView.effect = UIBlurEffect(style: style.material)
+            return
         }
-    }
-
-    final class Coordinator {
-        var animator: UIViewPropertyAnimator?
+        if current.style != style.material {
+            uiView.effect = UIBlurEffect(style: style.material)
+        }
     }
 }
 
@@ -67,11 +63,20 @@ struct GlassSurface<Content: View>: View {
         content()
             .background(
                 ZStack {
-                    GlassBackground(style: style)
+                    GlassBackground(
+                        style: GlassStyle(
+                            intensity: style.intensity,
+                            cornerRadius: style.cornerRadius,
+                            material: style.resolvedMaterial,
+                            tint: style.tint,
+                            tintOpacity: style.tintOpacity,
+                            stroke: style.stroke
+                        )
+                    )
                     LinearGradient(
                         colors: [
-                            style.tint.opacity(style.tintOpacity * 1.6),
-                            style.tint.opacity(style.tintOpacity * 0.4),
+                            style.tint.opacity(style.tintOpacity * 1.6 * style.intensity),
+                            style.tint.opacity(style.tintOpacity * 0.4 * style.intensity),
                         ],
                         startPoint: .top,
                         endPoint: .bottom

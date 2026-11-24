@@ -52,9 +52,18 @@ final class PlayerEngine: ObservableObject {
 
     // MARK: - 生命周期
 
+    private var didBootstrap = false
+
+    /// init 里只做最轻的初始化。音频会话、远程控制、时间观察者全部延后到首帧之后，
+    /// 避免启动期触碰 AVAudioSession / MPRemoteCommandCenter 引发闪退。
     private init() {
-        configureAudioSession()
         configurePlayer()
+    }
+
+    func bootstrapIfNeeded() {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+        configureAudioSession()
         configureObservers()
         configureRemoteCommands()
     }
@@ -251,6 +260,7 @@ final class PlayerEngine: ObservableObject {
     // MARK: - 播放控制
 
     func resume() {
+        bootstrapIfNeeded()
         guard currentTrack != nil else { return }
         if player.currentItem == nil {
             loadCurrentTrack(autoPlay: true)
